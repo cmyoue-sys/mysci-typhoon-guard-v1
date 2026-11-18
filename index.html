@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>태풍 대비 대작전 - 3단계 미션!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #E8F5E9; font-family: 'Jua', sans-serif; user-select: none; }
+        canvas { display: block; }
+        
+        #uiLayer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        .panel { position: absolute; background: #FFFFFF; padding: 15px 30px; border-radius: 25px; border: 5px solid #FFB74D; box-shadow: 0 8px 0px #FF9800, 0 15px 20px rgba(0,0,0,0.1); pointer-events: auto; }
+        
+        #missionPanel { top: 20px; left: 50%; transform: translateX(-50%); width: 700px; text-align: center; transition: top 0.5s; z-index: 5;}
+        #missionPanel.hidden { top: -200px; }
+        #missionPanel h2 { margin: 0 0 5px 0; color: #FF7043; font-size: 32px; text-shadow: 2px 2px 0px #FFE0B2; letter-spacing: 1px;}
+        #missionPanel p { margin: 0; font-size: 20px; color: #5D4037; }
+        
+        #interactionMsg { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); font-size: 32px; color: white; background: #42A5F5; padding: 15px 40px; border-radius: 50px; border: 5px solid #1E88E5; box-shadow: 0 8px 0px #1565C0, 0 15px 20px rgba(0,0,0,0.2); display: none; text-align: center; text-shadow: 2px 2px 0px #0D47A1; z-index: 10; animation: bounce 1s infinite alternate;}
+        @keyframes bounce { from { bottom: 100px; } to { bottom: 115px; } }
+        
+        .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #FFFDE7; padding: 40px; border-radius: 35px; border: 6px solid #4DB6AC; box-shadow: 0 15px 0px #26A69A, 0 20px 30px rgba(0,0,0,0.3); text-align: center; pointer-events: auto; max-width: 650px; display: none; background-image: radial-gradient(#FFF59D 15%, transparent 16%), radial-gradient(#FFF59D 15%, transparent 16%); background-size: 40px 40px; background-position: 0 0, 20px 20px; z-index: 100;}
+        .modal h1 { color: #00838F; margin-top: 0; font-size: 40px; text-shadow: 2px 2px 0px #B2EBF2; letter-spacing: 2px;}
+        .modal p { font-size: 24px; line-height: 1.6; color: #4E342E; word-break: keep-all; }
+        
+        .edu-box { background: #FFFFFF; border: 4px dashed #FFCA28; padding: 25px; border-radius: 20px; margin: 25px 0; font-size: 24px; color: #E65100; line-height: 1.5; box-shadow: inset 0 0 15px rgba(255, 202, 40, 0.3);}
+        
+        .btn { background: #FF5252; color: white; border: 4px solid #D32F2F; padding: 15px 50px; font-size: 28px; font-family: 'Jua', sans-serif; border-radius: 50px; cursor: pointer; box-shadow: 0 8px 0 #B71C1C; transition: all 0.1s; margin-top: 15px; letter-spacing: 1px; text-shadow: 2px 2px 0px #C62828;}
+        .btn:hover { background: #FF1744; transform: translateY(4px); box-shadow: 0 4px 0 #B71C1C; }
+        .btn:active { transform: translateY(8px); box-shadow: 0 0 0 #B71C1C; }
+
+        /* Stage 3 Defense UI */
+        #defenseUI { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 400px; text-align: center; display: none; z-index: 5;}
+        #defenseTimer { font-size: 48px; font-weight: bold; color: #D32F2F; text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff; margin-bottom: 10px;}
+        #waterBarContainer { width: 100%; height: 30px; background: #FFF; border: 4px solid #333; border-radius: 15px; overflow: hidden; position: relative;}
+        #waterBar { width: 0%; height: 100%; background: #2196F3; transition: width 0.1s; }
+        #waterText { position: absolute; top: 0; left: 0; width: 100%; height: 100%; text-align: center; line-height: 30px; color: #000; font-weight: bold; font-size: 20px;}
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="uiLayer">
+        <div id="missionPanel" class="panel" style="display:none;">
+            <h2 id="topMissionTitle">단계별 타이틀</h2>
+            <p id="topMissionDesc">미션 설명</p>
+        </div>
+        
+        <div id="defenseUI" class="panel">
+            <div id="defenseTimer">⏳ 15초</div>
+            <div id="waterBarContainer">
+                <div id="waterBar"></div>
+                <div id="waterText">지하실 수위 0%</div>
+            </div>
+            <p style="margin: 5px 0 0 0; color: #1565C0; font-size: 18px;">좌우 방향키로 빗물을 막으세요!</p>
+        </div>
+
+        <div id="interactionMsg">스페이스바를 누르세요!</div>
+    </div>
+
+    <!-- Start Modal -->
+    <div id="startModal" class="modal" style="display:block;">
+        <h1>🧩 우리집 지키기!</h1>
+        <p>
+            태풍 대비 행동 요령을 배워보아요!<br>
+            코딩 블록, 물건 나르기, 방어 액션까지<br>다양한 미션이 기다리고 있어요.
+        </p>
+        <p style="color:#D32F2F; font-size: 20px; background: rgba(255,255,255,0.8); border-radius: 10px; padding: 10px; border: 2px dashed #EF5350;">
+            ※ 키보드 <b>방향키</b>로 이동하고, <b>스페이스바</b>를 사용하세요!
+        </p>
+        <button id="startBtn" class="btn">미션 시작하기!</button>
+    </div>
+
+    <!-- Defense Start Modal -->
+    <div id="defenseStartModal" class="modal">
+        <h1 style="color:#FF9800;">🌊 돌발 미션: 빗물 막기!</h1>
+        <p>
+            비가 너무 많이 와서 지하실로 물이 밀려들고 있어요!<br>
+            방향키(⬅️ ➡️)를 움직여 <b>물막이판</b>으로<br>쏟아지는 빗물을 막아내세요!
+        </p>
+        <p style="color:#D32F2F; font-size: 20px; font-weight: bold;">목표: 15초 동안 버티기</p>
+        <button id="defenseStartBtn" class="btn">방어 시작!</button>
+    </div>
+
+    <!-- Education / Next Stage Modal -->
+    <div id="eduModal" class="modal">
+        <h1 id="eduTitle">🎉 마법 실행 완료!</h1>
+        <div id="eduText" class="edu-box">교육 내용</div>
+        <button id="nextBtn" class="btn" style="background:#42A5F5; border-color:#1E88E5; box-shadow: 0 8px 0 #1565C0; text-shadow: 2px 2px 0px #0D47A1;">다음 미션으로</button>
+    </div>
+
+    <!-- Defense Fail Modal -->
+    <div id="failModal" class="modal">
+        <h1 style="color:#F44336;">💦 지하실 침수!</h1>
+        <p>
+            앗! 물을 다 막아내지 못해서<br>지하실이 물에 완전히 잠겨버렸어요.<br>너무 위험해요!
+        </p>
+        <button id="retryDefenseBtn" class="btn" style="background:#FF9800; border-color:#EF6C00; box-shadow: 0 8px 0 #E65100;">다시 방어하기</button>
+    </div>
+
+    <!-- Final Success Modal -->
+    <div id="finalModal" class="modal">
+        <h1 style="color:#2E7D32;">🌟 모든 미션 완수!</h1>
+        <p>
+            정말 훌륭해요!<br>3가지 핵심 수칙을 완벽하게 실천했어요.<br>이제 거센 태풍이 와도 우리 집은 끄떡없을 거예요!
+        </p>
+        <button onclick="location.reload()" class="btn" style="background:#66BB6A; border-color:#43A047; box-shadow: 0 8px 0 #2E7D32; text-shadow: 2px 2px 0px #1B5E20;">처음부터 다시하기</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+
+        window.addEventListener('resize', () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            
+            if(state.stage === 1) updateSlotPositions();
+            if(state.stage === 2) {
+                st2.safeZone.x = width / 2;
+                st2.safeZone.w = width / 2;
+                // Update pot initial Y positions based on screen size so they don't hide
+                st2.pots[0].y = height * 0.4;
+                st2.pots[1].y = height * 0.6;
+                st2.pots[2].y = height * 0.8;
+            }
+            if(state.stage === 3 && state.defenseMode) {
+                defArea.x = width/2 - 250;
+                defArea.y = height - 200;
+            }
+        });
+
+        // Game State
+        const state = {
+            screen: 'start',
+            stage: 1,
+            animTime: 0,
+            stageCompleted: false,
+            // Stage 1 (Coding)
+            blocks: [], slots: [],
+            // Stage 3 (Defense)
+            defenseMode: false, defenseTimeLeft: 15, waterLevel: 0, drops: []
+        };
+
+        const player = { x: 0, y: 0, radius: 45, speed: 9, item: null, dir: 1 };
+        const paddle = { x: width/2, w: 120, h: 20, speed: 15 };
+        const defArea = { x: width/2 - 250, y: height - 200, w: 500, h: 200 };
+
+        const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+        let spacePressed = false;
+
+        window.addEventListener('keydown', e => { 
+            if(keys.hasOwnProperty(e.key)) keys[e.key] = true; 
+            if(e.code === 'Space' && !spacePressed) { spacePressed = true; handleInteraction(); }
+        });
+        window.addEventListener('keyup', e => { 
+            if(keys.hasOwnProperty(e.key)) keys[e.key] = false; 
+            if(e.code === 'Space') spacePressed = false;
+        });
+
+        const st1 = { winX: 0, winY: 100, winW: 400, winH: 300 };
+        const st2 = { pots: [], safeZone: { x: 0, y: 0, w: 0, h: height } };
+
+        const missionPanel = document.getElementById('missionPanel');
+        const topTitle = document.getElementById('topMissionTitle');
+        const topDesc = document.getElementById('topMissionDesc');
+        const interactionMsg = document.getElementById('interactionMsg');
+        const defenseUI = document.getElementById('defenseUI');
+        
+        document.getElementById('startBtn').addEventListener('click', () => { document.getElementById('startModal').style.display = 'none'; initStage(1); });
+        document.getElementById('nextBtn').addEventListener('click', () => { document.getElementById('eduModal').style.display = 'none'; initStage(state.stage + 1); });
+        document.getElementById('defenseStartBtn').addEventListener('click', () => { document.getElementById('defenseStartModal').style.display = 'none'; startDefenseGame(); });
+        document.getElementById('retryDefenseBtn').addEventListener('click', () => { document.getElementById('failModal').style.display = 'none'; startDefenseGame(); });
+
+        function updateSlotPositions() {
+            if(state.slots.length === 3) {
+                let startX = width / 2 - 380;
+                let slotY = 160; 
+                for(let i=0; i<3; i++) {
+                    state.slots[i].x = startX + (i * 260);
+                    state.slots[i].y = slotY;
+                }
+            }
+        }
+
+        function initStage(stageNum) {
+            state.stage = stageNum;
+            state.screen = 'play';
+            state.stageCompleted = false;
+            state.defenseMode = false;
+            player.item = null;
+            
+            if(stageNum === 1) {
+                missionPanel.style.display = 'block'; missionPanel.classList.remove('hidden'); defenseUI.style.display = 'none';
+                topTitle.innerText = "1단계: 🪟 창문 안전 마법";
+                topDesc.innerText = "블록을 순서대로 끼워 창문을 단단하게 고정하세요!";
+                player.x = width / 2; player.y = height - 150;
+                st1.winX = width/2 - 200;
+                st1.winY = 250;
+
+                state.slots = [];
+                for(let i=0; i<3; i++) { state.slots.push({ id: i, w: 250, h: 50, x: 0, y: 0, text: (i+1)+"번 빈칸" }); }
+                updateSlotPositions();
+
+                let texts = ["창문이 깨지지 않게", "가장자리 틈새를", "단단히 고정하세요"];
+                let randOrder = [0, 1, 2].sort(() => Math.random() - 0.5); 
+                
+                state.blocks = [];
+                let posList = [{x: width*0.2, y: height*0.65}, {x: width*0.5, y: height*0.8}, {x: width*0.8, y: height*0.75}];
+                posList.sort(() => Math.random() - 0.5); 
+                
+                for(let i=0; i<3; i++) {
+                    let correctSlotIdx = randOrder[i];
+                    state.blocks.push({ 
+                        id: i, text: texts[correctSlotIdx], x: posList[i].x, y: posList[i].y, w: 250, h: 50, 
+                        state: 'idle', slotIdx: correctSlotIdx 
+                    });
+                }
+            } 
+            else if(stageNum === 2) {
+                missionPanel.style.display = 'block'; missionPanel.classList.remove('hidden'); defenseUI.style.display = 'none';
+                topTitle.innerText = "2단계: 🪴 화분 대피 작전";
+                topDesc.innerText = "바람에 날아갈 것 같은 마당의 화분 3개를 집 안으로 옮기세요!";
+                player.x = width / 4; player.y = height / 2;
+                st2.safeZone.x = width / 2; st2.safeZone.w = width / 2; st2.safeZone.h = height;
+                st2.pots = [
+                    { x: width/4 - 150, y: height * 0.4, active: true, safe: false },
+                    { x: width/4 + 50, y: height * 0.6, active: true, safe: false },
+                    { x: width/4 - 50, y: height * 0.8, active: true, safe: false }
+                ];
+            }
+            else if(stageNum === 3) {
+                missionPanel.style.display = 'none'; interactionMsg.style.display = 'none';
+                document.getElementById('defenseStartModal').style.display = 'block';
+                player.x = width / 2; player.y = height / 2;
+            }
+            loop();
+        }
+
+        // --- Defense Minigame Functions ---
+        function startDefenseGame() {
+            state.screen = 'play';
+            state.defenseMode = true;
+            state.defenseTimeLeft = 15.0;
+            state.waterLevel = 0;
+            state.drops = [];
+            defArea.x = width/2 - 250; paddle.x = defArea.x + defArea.w/2;
+            defenseUI.style.display = 'block'; updateDefenseUI();
+            state.lastTime = Date.now();
+        }
+
+        function spawnDrop() {
+            state.drops.push({ x: defArea.x + Math.random() * defArea.w, y: -50, speedY: 4 + Math.random() * 4, radius: 20 });
+        }
+
+        function updateDefenseUI() {
+            document.getElementById('defenseTimer').innerText = `⏳ ${Math.ceil(state.defenseTimeLeft)}초`;
+            document.getElementById('waterBar').style.width = `${state.waterLevel}%`;
+            document.getElementById('waterText').innerText = `지하실 수위 ${Math.floor(state.waterLevel)}%`;
+            if(state.waterLevel > 70) document.getElementById('waterBar').style.background = '#D32F2F';
+            else document.getElementById('waterBar').style.background = '#2196F3';
+        }
+
+        function checkDefenseWinLoss() {
+            if(state.waterLevel >= 100) {
+                state.defenseMode = false; state.screen = 'fail'; defenseUI.style.display = 'none'; document.getElementById('failModal').style.display = 'block';
+            } else if(state.defenseTimeLeft <= 0) {
+                state.defenseMode = false; state.stageCompleted = true; defenseUI.style.display = 'none'; setTimeout(showEduPopup, 1000); 
+            }
+        }
+
+        function showEduPopup() {
+            state.screen = 'edu'; interactionMsg.style.display = 'none';
+            const eduModal = document.getElementById('eduModal');
+            const eduText = document.getElementById('eduText');
+
+            if(state.stage === 1) {
+                eduTitle.innerText = "🎉 마법 실행 완료!";
+                eduText.innerHTML = "💡 <b>기억하세요!</b><br><br>명령어가 실행되어 창문이 튼튼해졌어요!<br>강풍에 창문이 파손되는 가장 큰 원인은 '창틀의 흔들림'이에요. 유리에 테이프를 붙이는 것보다 <b>창문과 창틀 사이의 틈새가 벌어지지 않게 꽉 고정</b>하는 것이 훨씬 중요하답니다!";
+                eduModal.style.display = 'block';
+            } 
+            else if(state.stage === 2) {
+                eduTitle.innerText = "🎉 대피 성공!";
+                eduText.innerHTML = "💡 <b>기억하세요!</b><br><br>화분들이 집 안으로 무사히 대피했어요!<br>태풍에 야외 물건이 날아가면 <b>유리창을 깨거나 다치게 하는 무서운 흉기</b>로 변할 수 있어요. 꼭 미리 실내로 옮겨야 해요!";
+                eduModal.style.display = 'block';
+            }
+            else if(state.stage === 3) {
+                eduTitle.innerText = "🎉 방어 성공!";
+                eduText.innerHTML = "💡 <b>기억하세요!</b><br><br>멋지게 빗물을 막아내고 튼튼한 방어벽을 세웠어요!<br>태풍이 오면 짧은 시간에 많은 비가 쏟아져요. <b>물막이판이나 모래주머니</b>로 지하 공간의 침수를 막아야 우리의 생명과 재산을 지킬 수 있어요!";
+                document.getElementById('nextBtn').innerText = "최종 결과 확인하기";
+                document.getElementById('nextBtn').style.background = "#FF5252";
+                document.getElementById('nextBtn').style.borderColor = "#D32F2F";
+                document.getElementById('nextBtn').style.boxShadow = "0 8px 0 #B71C1C";
+                eduModal.style.display = 'block';
+            }
+            
+            if(state.stage === 3) {
+                document.getElementById('nextBtn').onclick = () => {
+                    document.getElementById('eduModal').style.display = 'none';
+                    document.getElementById('finalModal').style.display = 'block';
+                };
+            }
+        }
+
+        // --- Cute Design Drawing Helpers ---
+        function drawRoundedRect(ctx, x, y, w, h, fill, stroke, lw=5, rx=20) {
+            ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = lw;
+            ctx.beginPath(); ctx.roundRect(x, y, w, h, rx); ctx.fill(); if(stroke) ctx.stroke();
+        }
+
+        function drawCodingBlock(ctx, x, y, w, h, text, isSlot=false, isSlotted=false) {
+            ctx.save(); ctx.translate(x, y);
+            if (isSlot) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; ctx.strokeStyle = '#9E9E9E'; ctx.lineWidth = 4;
+                ctx.setLineDash([10, 10]); ctx.beginPath(); ctx.roundRect(0, 0, w, h, 15); ctx.fill(); ctx.stroke();
+                ctx.setLineDash([]); ctx.fillStyle = '#616161'; ctx.font = '900 20px "Jua", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, w/2, h/2);
+            } else {
+                const colors = [ {f: '#FFCA28', s: '#F57F17'}, {f: '#66BB6A', s: '#2E7D32'}, {f: '#29B6F6', s: '#0277BD'} ];
+                let colIdx = text.length % 3;
+                if(text.includes('창문') || text.includes('강풍')) colIdx = 0;
+                if(text.includes('가장자리') || text.includes('마당의')) colIdx = 1;
+                if(text.includes('단단히') || text.includes('집 안으로')) colIdx = 2;
+
+                ctx.fillStyle = colors[colIdx].f; ctx.strokeStyle = colors[colIdx].s; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(w/2 - 15, 0); ctx.arc(w/2, 0, 15, Math.PI, 0, true); ctx.lineTo(w-15, 0); 
+                ctx.arcTo(w, 0, w, 15, 15); ctx.lineTo(w, h-15); ctx.arcTo(w, h, w-15, h, 15);
+                ctx.lineTo(w/2 + 15, h); ctx.arc(w/2, h, 15, 0, Math.PI, false); ctx.lineTo(15, h); 
+                ctx.arcTo(0, h, 0, h-15, 15); ctx.lineTo(0, 15); ctx.arcTo(0, 0, 15, 0, 15);
+                ctx.fill(); ctx.stroke();
+
+                ctx.fillStyle = '#333'; ctx.font = '900 22px "Jua", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, w/2, h/2);
+            }
+            ctx.restore();
+        }
+
+        function drawCutePot(ctx, x, y) {
+            ctx.save(); ctx.translate(x, y);
+            ctx.fillStyle = '#FFEB3B'; ctx.strokeStyle = '#F57F17'; ctx.lineWidth = 4;
+            for(let i=0; i<6; i++) { ctx.rotate(Math.PI/3); ctx.beginPath(); ctx.ellipse(0, -55, 12, 18, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke(); }
+            ctx.fillStyle = '#FF9800'; ctx.beginPath(); ctx.arc(0, -40, 18, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(-5, -42, 3, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(5, -42, 3, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(0, -38, 4, 0, Math.PI); ctx.stroke();
+            ctx.strokeStyle = '#4CAF50'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(0, -22); ctx.lineTo(0, 0); ctx.stroke();
+            ctx.fillStyle = '#FF7043'; ctx.strokeStyle = '#D84315'; ctx.lineWidth = 5;
+            ctx.beginPath(); ctx.moveTo(-25, -10); ctx.lineTo(25, -10); ctx.lineTo(18, 25); ctx.lineTo(-18, 25); ctx.closePath(); ctx.fill(); ctx.stroke();
+            drawRoundedRect(ctx, -30, -15, 60, 15, '#FF8A65', '#D84315', 5, 5);
+            ctx.restore();
+        }
+
+        function drawCharacter(ctx, x, y, radius, isPaddle=false) {
+            ctx.save(); ctx.translate(x, y);
+            let bounce = (!isPaddle && (keys.w || keys.a || keys.s || keys.d || keys.ArrowUp || keys.ArrowDown || keys.ArrowLeft || keys.ArrowRight)) ? Math.sin(state.animTime * 20) * 8 : 0;
+            ctx.translate(0, bounce);
+            if(player.dir === -1 && !isPaddle) ctx.scale(-1, 1);
+
+            const coatColor = '#FFCA28'; const shadowColor = '#FFA000';
+            ctx.fillStyle = '#EF5350'; ctx.strokeStyle = '#C62828'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.ellipse(-15, radius-5, 12, 18, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.ellipse(15, radius-5, 12, 18, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = coatColor; ctx.beginPath(); ctx.moveTo(-radius*0.85, -10); ctx.lineTo(radius*0.85, -10); ctx.lineTo(radius*1.1, radius - 15); ctx.lineTo(-radius*1.1, radius - 15); ctx.closePath(); ctx.fill(); ctx.strokeStyle = shadowColor; ctx.stroke();
+            ctx.fillStyle = shadowColor; ctx.fillRect(-radius*0.6, 5, 15, 15); ctx.fillRect(radius*0.6-15, 5, 15, 15);
+            ctx.fillStyle = '#FFE0B2'; ctx.strokeStyle = '#F57F17'; ctx.beginPath(); ctx.arc(0, -18, radius*0.7, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#3E2723'; ctx.beginPath(); ctx.ellipse(-12, -18, 5, 8, 0, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(12, -18, 5, 8, 0, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(-13, -20, 2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(11, -20, 2, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#3E2723'; ctx.lineWidth = 3;
+            if(isPaddle) { ctx.beginPath(); ctx.moveTo(-6, -8); ctx.lineTo(6, -8); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-15, -28); ctx.lineTo(-8, -25); ctx.stroke(); ctx.beginPath(); ctx.moveTo(15, -28); ctx.lineTo(8, -25); ctx.stroke(); } 
+            else { ctx.beginPath(); ctx.arc(0, -10, 6, 0, Math.PI); ctx.stroke(); }
+            ctx.fillStyle = 'rgba(255, 82, 82, 0.5)'; ctx.beginPath(); ctx.ellipse(-22, -12, 7, 4, 0, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(22, -12, 7, 4, 0, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = coatColor; ctx.strokeStyle = shadowColor; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, -18, radius*0.85, Math.PI*0.9, Math.PI*0.1); ctx.quadraticCurveTo(0, -radius*1.2, -radius*0.85, -18); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = coatColor; ctx.strokeStyle = shadowColor;
+            
+            // Arms
+            if(player.item || isPaddle) { 
+                ctx.beginPath(); ctx.ellipse(-radius*0.8, -20, 10, 20, -Math.PI/4, 0, Math.PI*2); ctx.fill(); ctx.stroke(); 
+                ctx.beginPath(); ctx.ellipse(radius*0.8, -20, 10, 20, Math.PI/4, 0, Math.PI*2); ctx.fill(); ctx.stroke(); 
+            } else { 
+                ctx.beginPath(); ctx.ellipse(-radius*0.8, 10, 10, 20, Math.PI/5, 0, Math.PI*2); ctx.fill(); ctx.stroke(); 
+                ctx.beginPath(); ctx.ellipse(radius*0.8, 10, 10, 20, -Math.PI/5, 0, Math.PI*2); ctx.fill(); ctx.stroke(); 
+            }
+            
+            if(isPaddle) { 
+                ctx.fillStyle = '#FF9800'; ctx.strokeStyle = '#E65100'; ctx.lineWidth = 4; 
+                ctx.beginPath(); ctx.roundRect(-paddle.w/2, -radius - 30, paddle.w, paddle.h, 10); ctx.fill(); ctx.stroke(); 
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign='center'; ctx.fillText('물막이판', 0, -radius - 15); 
+            }
+
+            if(player.item === 'pot') {
+                ctx.scale(0.8, 0.8);
+                drawCutePot(ctx, 0, -radius - 40);
+            }
+            ctx.restore();
+        }
+
+        // --- Interaction Logic ---
+        function handleInteraction() {
+            if(state.screen !== 'play' || state.stageCompleted || state.defenseMode) return;
+
+            if(state.stage === 1) {
+                if(player.item) {
+                    let carried = player.item;
+                    let slot = state.slots[carried.slotIdx];
+                    let distToSlot = Math.hypot(player.x - (slot.x + slot.w/2), player.y - (slot.y + slot.h/2));
+                    if(distToSlot < 150) {
+                        carried.state = 'slotted'; carried.x = slot.x; carried.y = slot.y; player.item = null;
+                        if(state.blocks.every(b => b.state === 'slotted')) { state.stageCompleted = true; missionPanel.classList.add('hidden'); setTimeout(showEduPopup, 2000); }
+                    } else { carried.state = 'idle'; carried.x = player.x - carried.w/2; carried.y = player.y + 20; player.item = null; }
+                } else {
+                    for(let b of state.blocks) {
+                        if(b.state === 'idle' && Math.hypot(player.x - (b.x + b.w/2), player.y - (b.y + b.h/2)) < 100) { b.state = 'carried'; player.item = b; break; }
+                    }
+                }
+            } 
+            else if(state.stage === 2) {
+                if (!player.item) {
+                    for(let p of st2.pots) {
+                        if(p.active && !p.safe && Math.hypot(player.x - p.x, player.y - p.y) < 120) { 
+                            p.active = false; player.item = 'pot'; return; 
+                        }
+                    }
+                } else if (player.item === 'pot' && player.x > st2.safeZone.x) {
+                    player.item = null;
+                    let carriedPot = st2.pots.find(p => !p.active && !p.safe);
+                    if(carriedPot) carriedPot.safe = true;
+                    
+                    if(st2.pots.every(p => p.safe)) { state.stageCompleted = true; setTimeout(showEduPopup, 600); }
+                }
+            }
+        }
+
+        function updateUI() {
+            interactionMsg.style.display = 'none';
+            if(state.stageCompleted || state.defenseMode) return;
+
+            if(state.stage === 1) {
+                if(player.item) {
+                    let slot = state.slots[player.item.slotIdx];
+                    let distToSlot = Math.hypot(player.x - (slot.x + slot.w/2), player.y - (slot.y + slot.h/2));
+                    if(distToSlot < 150) { interactionMsg.innerText = "스페이스바: 빈칸에 끼워넣기!"; interactionMsg.style.display = 'block'; } 
+                    else { interactionMsg.innerText = "스페이스바: 바닥에 내려놓기"; interactionMsg.style.display = 'block'; }
+                } else {
+                    let nearBlock = false;
+                    for(let b of state.blocks) {
+                        if(b.state === 'idle' && Math.hypot(player.x - (b.x + b.w/2), player.y - (b.y + b.h/2)) < 100) { nearBlock = true; break; }
+                    }
+                    if(nearBlock) { interactionMsg.innerText = "스페이스바: 블록 들기!"; interactionMsg.style.display = 'block'; }
+                }
+            }
+            else if(state.stage === 2) {
+                if(!player.item) {
+                    let nearPot = false;
+                    st2.pots.forEach(p => { 
+                        if(p.active && !p.safe && Math.hypot(player.x - p.x, player.y - p.y) < 120) nearPot = true; 
+                    });
+                    if(nearPot) { interactionMsg.innerText = "스페이스바: 화분 들기!"; interactionMsg.style.display = 'block'; }
+                } else if (player.x > st2.safeZone.x) {
+                    interactionMsg.innerText = "스페이스바: 안전하게 내려놓기!"; interactionMsg.style.display = 'block';
+                }
+            }
+        }
+
+        // --- Render Loops ---
+        function loop() {
+            if(state.screen !== 'play') return;
+            requestAnimationFrame(loop);
+            
+            let now = Date.now();
+            let dt = (now - (state.lastTime || now)) / 1000;
+            state.lastTime = now;
+            state.animTime += dt;
+
+            // Defense Mode Logic
+            if(state.defenseMode) {
+                state.defenseTimeLeft -= dt;
+                
+                if(keys.a || keys.ArrowLeft) paddle.x -= paddle.speed;
+                if(keys.d || keys.ArrowRight) paddle.x += paddle.speed;
+                paddle.x = Math.max(defArea.x + paddle.w/2, Math.min(defArea.x + defArea.w - paddle.w/2, paddle.x));
+
+                let spawnChance = 0.03 + (15 - state.defenseTimeLeft) * 0.005;
+                if(Math.random() < spawnChance) spawnDrop();
+
+                for(let i=state.drops.length-1; i>=0; i--) {
+                    let d = state.drops[i]; d.y += d.speedY;
+                    let py = defArea.y - 75; 
+                    if(d.y + d.radius > py && d.y - d.radius < py + paddle.h && d.x > paddle.x - paddle.w/2 && d.x < paddle.x + paddle.w/2) {
+                        state.drops.splice(i, 1); continue;
+                    }
+                    if(d.y > defArea.y) { state.waterLevel += 4; state.drops.splice(i, 1); }
+                }
+                updateDefenseUI(); checkDefenseWinLoss();
+            } 
+            else if(!state.stageCompleted) {
+                let dx = 0; let dy = 0;
+                let currentSpeed = player.item ? player.speed * 0.7 : player.speed;
+                if(keys.a || keys.ArrowLeft) { dx -= currentSpeed; player.dir = -1; }
+                if(keys.d || keys.ArrowRight) { dx += currentSpeed; player.dir = 1; }
+                if(keys.w || keys.ArrowUp) dy -= currentSpeed;
+                if(keys.s || keys.ArrowDown) dy += currentSpeed;
+
+                player.x = Math.max(player.radius, Math.min(width - player.radius, player.x + dx));
+                player.y = Math.max(250, Math.min(height - player.radius, player.y + dy));
+            }
+
+            updateUI();
+            ctx.clearRect(0, 0, width, height);
+
+            // ----------------------------------------------------
+            // DRAW STAGE 1
+            // ----------------------------------------------------
+            if(state.stage === 1) {
+                ctx.fillStyle = '#FFF9C4'; ctx.fillRect(0, 0, width, height);
+                ctx.fillStyle = '#FFF176'; for(let i=0; i<width; i+=60) { ctx.fillRect(i, 0, 30, height); }
+                ctx.fillStyle = '#D7CCC8'; ctx.fillRect(0, height - 200, width, 200);
+                ctx.fillStyle = '#BCAAA4'; for(let i=0; i<width; i+=80) { ctx.fillRect(i, height - 200, 5, 200); }
+
+                let wx = st1.winX; let wy = st1.winY;
+                if(!state.stageCompleted) wx += Math.sin(state.animTime * 50) * 8; 
+                
+                drawRoundedRect(ctx, wx, wy, 400, 300, '#E1F5FE', '#0288D1', 15, 20);
+                ctx.fillStyle = '#F8BBD0'; ctx.strokeStyle = '#C2185B'; ctx.lineWidth = 5;
+                ctx.beginPath(); ctx.moveTo(wx, wy); ctx.quadraticCurveTo(wx+100, wy+150, wx, wy+300); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(wx+400, wy); ctx.quadraticCurveTo(wx+300, wy+150, wx+400, wy+300); ctx.fill(); ctx.stroke();
+                ctx.strokeStyle = '#0288D1'; ctx.lineWidth = 10;
+                ctx.beginPath(); ctx.moveTo(wx + 200, wy); ctx.lineTo(wx + 200, wy + 300); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(wx, wy + 150); ctx.lineTo(wx + 400, wy + 150); ctx.stroke();
+
+                if(state.stageCompleted) {
+                    drawRoundedRect(ctx, wx-5, wy-5, 410, 310, 'transparent', '#FFA726', 25, 20);
+                    ctx.font = '40px sans-serif'; ctx.fillText('✨', wx-20, wy-20); ctx.fillText('✨', wx+400, wy-20);
+                }
+
+                drawCharacter(ctx, player.x, player.y, player.radius);
+                if(!state.stageCompleted) {
+                    state.slots.forEach(s => { drawCodingBlock(ctx, s.x, s.y, s.w, s.h, s.text, true); });
+                    state.blocks.forEach(b => {
+                        if(b.state === 'idle') { let floatY = b.y + Math.sin(state.animTime * 3 + b.id)*5; drawCodingBlock(ctx, b.x, floatY, b.w, b.h, b.text, false); } 
+                        else if(b.state === 'slotted') { drawCodingBlock(ctx, b.x, b.y, b.w, b.h, b.text, false); }
+                    });
+                    if(player.item) { let carried = player.item; drawCodingBlock(ctx, player.x - carried.w/2, player.y - player.radius - 70, carried.w, carried.h, carried.text, false); }
+                }
+            } 
+            // ----------------------------------------------------
+            // DRAW STAGE 2
+            // ----------------------------------------------------
+            else if(state.stage === 2) {
+                ctx.fillStyle = '#A5D6A7'; ctx.fillRect(0, 0, width/2, height);
+                ctx.fillStyle = '#81C784'; for(let i=0; i<100; i++) { ctx.beginPath(); ctx.arc((i*137)% (width/2), (i*93)%height, 8, 0, Math.PI*2); ctx.fill(); }
+                
+                let hx = width/2;
+                ctx.fillStyle = '#8D6E63'; ctx.fillRect(hx, 0, 40, height);
+                ctx.fillStyle = '#FFF9C4'; ctx.fillRect(hx + 40, 0, width/2 - 40, height);
+                ctx.fillStyle = '#FFF176'; ctx.font = '30px sans-serif';
+                for(let i=0; i<15; i++) { ctx.fillText('★', hx + 80 + (i*120)%(width/2-40), 100 + (i*90)%height); }
+                
+                ctx.fillStyle = '#FFCDD2'; ctx.strokeStyle = '#EF9A9A'; ctx.beginPath(); ctx.ellipse(hx + 300, height/2 + 100, 200, 100, 0, 0, Math.PI*2); ctx.fill(); ctx.lineWidth=10; ctx.stroke();
+                ctx.fillStyle = '#EF5350'; ctx.strokeStyle = '#C62828'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(hx - 80, -20); ctx.lineTo(width, -20); ctx.lineTo(width, 100); ctx.lineTo(hx - 80, 100); ctx.closePath(); ctx.fill(); ctx.stroke();
+                
+                if(!state.stageCompleted) {
+                    ctx.font = '60px sans-serif';
+                    for(let i=0; i<6; i++) { let wx = (state.animTime * 800 + i * 200) % (width/2); let wy = 150 + (i * 120) % height; ctx.fillText('💨', wx, wy); }
+                }
+
+                let housePos = [{x: width*0.75 - 100, y: height/2 + 80}, {x: width*0.75 + 50, y: height/2 + 120}, {x: width*0.75 + 150, y: height/2 + 50}];
+
+                for(let i=0; i<3; i++) {
+                    let p = st2.pots[i];
+                    if(p.active && !p.safe) {
+                        let shake = Math.sin(state.animTime * 60 + i) * 8; 
+                        drawCutePot(ctx, p.x + shake, p.y); 
+                    } else if (!p.active && p.safe) {
+                        drawCutePot(ctx, housePos[i].x, housePos[i].y);
+                    }
+                }
+                
+                drawCharacter(ctx, player.x, player.y, player.radius);
+            }
+            // ----------------------------------------------------
+            // DRAW STAGE 3
+            // ----------------------------------------------------
+            else if(state.stage === 3) {
+                ctx.fillStyle = '#90A4AE'; ctx.fillRect(0, 0, width, height); 
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 3;
+                for(let i=0; i<40; i++) {
+                    let rx = (i * 90 + state.animTime * 200) % width; let ry = (i * 150 + state.animTime * 1500) % height;
+                    ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 20, ry + 40); ctx.stroke();
+                }
+
+                drawRoundedRect(ctx, defArea.x, defArea.y, defArea.w, defArea.h, '#263238', '#37474F', 10, 20);
+                for(let s=0; s<4; s++) {
+                    let sx = defArea.x + 30 + s*35; let sy = defArea.y + 30 + s*35;
+                    let sw = defArea.w - 60 - s*70; let sh = defArea.h - 30 - s*35;
+                    ctx.fillStyle = (s%2===0)? '#455A64' : '#546E7A'; ctx.fillRect(sx, sy, sw, sh);
+                    ctx.strokeStyle = '#101416'; ctx.lineWidth=4; ctx.strokeRect(sx, sy, sw, sh);
+                }
+                
+                if(state.waterLevel > 0) {
+                    let wh = (state.waterLevel / 100) * defArea.h;
+                    ctx.fillStyle = 'rgba(33, 150, 243, 0.7)'; ctx.fillRect(defArea.x, defArea.y + defArea.h - wh, defArea.w, wh);
+                }
+
+                if(state.defenseMode) {
+                    ctx.font = '40px sans-serif'; state.drops.forEach(d => { ctx.fillText('💧', d.x - 20, d.y + 20); });
+                    drawCharacter(ctx, paddle.x, defArea.y - 45, player.radius, true);
+                } else if(state.stageCompleted) {
+                    drawCharacter(ctx, width/2, height/2, player.radius);
+                    for(let r=0; r<3; r++) {
+                        for(let c=0; c<6; c++) {
+                            ctx.fillStyle = '#FFE082'; ctx.strokeStyle = '#F57F17'; ctx.lineWidth = 3;
+                            let sx = defArea.x + 30 + c*80 + (r%2*40); let sy = defArea.y + defArea.h - 20 - r*30;
+                            ctx.beginPath(); ctx.ellipse(sx, sy, 40, 25, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                        }
+                    }
+                    ctx.font = '50px "Jua", sans-serif'; ctx.fillStyle='#FFEB3B'; ctx.strokeStyle='#333'; ctx.lineWidth=3;
+                    ctx.textAlign='center'; ctx.strokeText('✨철통방어!✨', defArea.x + defArea.w/2, defArea.y - 30); ctx.fillText('✨철통방어!✨', defArea.x + defArea.w/2, defArea.y - 30);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
